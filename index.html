@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Air Quality Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .text-orange {
+            color: #fd7e14 !important;
+        }
+        .text-purple {
+            color: #9c27b0 !important;
+        }
+        .bg-orange {
+            background-color: #fd7e14 !important;
+        }
+        .bg-purple {
+            background-color: #9c27b0 !important;
+            color: white !important;
+        }
+        .error-message-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            width: 80%;
+            max-width: 500px;
+        }
+        .alert-orange {
+            background-color: rgba(253, 126, 20, 0.15);
+            color: #d67013;
+            border-color: rgba(253, 126, 20, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-airplane-engines"></i> Air Quality and Public Health Analysis
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link active" id="dashboard-tab" data-bs-toggle="tab" href="#dashboard" role="tab" aria-controls="dashboard" aria-selected="true">Dashboard</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" id="analysis-tab" data-bs-toggle="tab" href="#analysis" role="tab" aria-controls="analysis" aria-selected="false">Analysis</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" id="health-tab" data-bs-toggle="tab" href="#health" role="tab" aria-controls="health" aria-selected="false">Health Impact</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" id="about-tab" data-bs-toggle="tab" href="#about" role="tab" aria-controls="about" aria-selected="false">About</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tab content container -->
+    <div class="tab-content" id="myTabContent">
+        <!-- Dashboard Tab (Main Content) -->
+        <div class="tab-pane fade show active" id="dashboard" role="tabpanel" aria-labelledby="dashboard-tab">
+            <!-- Main content section with dashboard and info panel side by side -->
+            <div class="container mt-4">
+                <div class="row">
+                    <!-- Main Dashboard Content (9 columns) -->
+                    <div class="col-lg-9">
+                        <!-- Location Selection -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Select Location</h5>
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <form id="citySearchForm">
+                                                    <div class="input-group">
+                                                        <input type="text" class="form-control" id="cityName" placeholder="Enter city name">
+                                                        <button type="submit" class="btn btn-primary">
+                                                            <i class="bi bi-search"></i> Search
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="input-group">
+                                                    <input type="number" class="form-control" id="latitude" placeholder="Latitude">
+                                                    <input type="number" class="form-control" id="longitude" placeholder="Longitude">
+                                                    <button class="btn btn-primary" id="useCoordinates">
+                                                        <i class="bi bi-geo-alt"></i> Use Coordinates
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <button class="btn btn-success" id="useCurrentLocation">
+                                                    <i class="bi bi-geo-alt-fill"></i> Use Current Location
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div id="selectedLocation" class="mt-2"></div>
+                                        <div id="locationLoading" class="mt-2 d-none">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <span class="ms-2">Fetching location data...</span>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div id="locationDisplay" class="fw-bold"></div>
+                                            <div id="stationInfo" class="text-muted small d-none"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- API selection toggle -->
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Data Source</h5>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="radio" name="apiChoice" id="waqiApiToggle" checked>
+                                            <label class="form-check-label" for="waqiApiToggle">
+                                                Use WAQI API (World Air Quality Index)
+                                            </label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="radio" name="apiChoice" id="iqairApiToggle">
+                                            <label class="form-check-label" for="iqairApiToggle">
+                                                Use IQAir API (requires API key)
+                                            </label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="radio" name="apiChoice" id="openaqApiToggle">
+                                            <label class="form-check-label" for="openaqApiToggle">
+                                                Use OpenAQ API (limited data availability)
+                                            </label>
+                                        </div>
+                                        <div id="iqair-key-input" class="mt-2" style="display: none;">
+                                            <div class="input-group">
+                                                <input type="text" class="form-control" id="iqairApiKey" placeholder="Enter your IQAir API key">
+                                                <button class="btn btn-success" id="saveApiKey">Save</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Data Source and Refresh Controls -->
+                        <div class="card mb-4">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Data Controls</h5>
+                                <div>
+                                    <span id="refreshIndicator" class="badge bg-success d-none animate__animated animate__fadeIn">Refreshing...</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="USE_WAQI_TOGGLE">
+                                            <label class="form-check-label" for="USE_WAQI_TOGGLE">Use WAQI API</label>
+                                        </div>
+                                        <div id="apiKeyContainer" class="mb-3">
+                                            <label for="WAQI_API_KEY" class="form-label">WAQI API Key</label>
+                                            <input type="text" class="form-control" id="WAQI_API_KEY" placeholder="Enter your WAQI API Key">
+                                            <div class="form-text">Get your free API key at <a href="https://aqicn.org/data-platform/token/" target="_blank">aqicn.org</a></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="autoRefreshToggle">
+                                            <label class="form-check-label" for="autoRefreshToggle">Auto-refresh data</label>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="refreshInterval" class="form-label">Refresh interval (minutes)</label>
+                                            <select class="form-select" id="refreshInterval">
+                                                <option value="1">1 minute</option>
+                                                <option value="5" selected>5 minutes</option>
+                                                <option value="10">10 minutes</option>
+                                                <option value="15">15 minutes</option>
+                                                <option value="30">30 minutes</option>
+                                                <option value="60">1 hour</option>
+                                            </select>
+                                        </div>
+                                        <button id="manualRefresh" class="btn btn-primary">
+                                            <i class="bi bi-arrow-clockwise"></i> Refresh Now
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- End Data Source and Refresh Controls -->
+
+                        <div class="row">
+                            <!-- Key Metrics -->
+                            <div class="col-md-3">
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">AQI</h5>
+                                        <h2 class="card-text" id="aqi-value">--</h2>
+                                        <p class="card-text text-muted">Air Quality Index</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">PM2.5</h5>
+                                        <h2 class="card-text" id="pm25-value">--</h2>
+                                        <p class="card-text text-muted">µg/m³</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Health Risk</h5>
+                                        <h2 class="card-text" id="health-risk">--</h2>
+                                        <p class="card-text text-muted">Current Level</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Trend</h5>
+                                        <h2 class="card-text" id="trend-value">--</h2>
+                                        <p class="card-text text-muted">24h Change</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charts Section -->
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Air Quality Trends</h5>
+                                        <canvas id="airQualityChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Health Impact Distribution</h5>
+                                        <canvas id="healthImpactChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weather Section -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Weather Information</h5>
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="card">
+                                                    <div class="card-body text-center">
+                                                        <h6 class="card-subtitle mb-2 text-muted">Temperature</h6>
+                                                        <h3 id="temperature-value">--</h3>
+                                                        <p class="text-muted">°C</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="card">
+                                                    <div class="card-body text-center">
+                                                        <h6 class="card-subtitle mb-2 text-muted">Humidity</h6>
+                                                        <h3 id="humidity-value">--</h3>
+                                                        <p class="text-muted">%</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="card">
+                                                    <div class="card-body text-center">
+                                                        <h6 class="card-subtitle mb-2 text-muted">Wind Speed</h6>
+                                                        <h3 id="wind-speed-value">--</h3>
+                                                        <p class="text-muted">m/s</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3 text-center">
+                                            <small id="data-source" class="text-muted">Data source: OpenAQ/Simulated</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Data Table -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Historical Data</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-striped" id="dataTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Time</th>
+                                                        <th>AQI</th>
+                                                        <th>PM2.5</th>
+                                                        <th>Health Risk</th>
+                                                        <th>Trend</th>
+                                                        <th>Source</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="tableBody">
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Information Panel (3 columns) -->
+                    <div class="col-lg-3 d-none d-lg-block" id="infoPanel">
+                        <div class="card sticky-top" style="top: 20px;">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="card-title mb-0">Air Quality Information</h5>
+                            </div>
+                            <div class="card-body">
+                                <h6 class="border-bottom pb-2">AQI (Air Quality Index) Ranges</h6>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="badge bg-success">0-50</span>
+                                        <span>Good</span>
+                                    </div>
+                                    <small class="text-muted">Air quality is satisfactory, poses little or no risk</small>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="badge bg-warning text-dark">51-100</span>
+                                        <span>Moderate</span>
+                                    </div>
+                                    <small class="text-muted">Acceptable, but may cause moderate health concern for sensitive people</small>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="badge bg-warning text-dark">101-150</span>
+                                        <span>Unhealthy for Sensitive Groups</span>
+                                    </div>
+                                    <small class="text-muted">Sensitive groups may experience health effects</small>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="badge bg-orange">151-200</span>
+                                        <span>Unhealthy</span>
+                                    </div>
+                                    <small class="text-muted">Everyone may begin to experience health effects</small>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="badge bg-danger">201-300</span>
+                                        <span>Very Unhealthy</span>
+                                    </div>
+                                    <small class="text-muted">Health warnings of emergency conditions</small>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="badge bg-purple">301+</span>
+                                        <span>Hazardous</span>
+                                    </div>
+                                    <small class="text-muted">Health alert: everyone may experience serious health effects</small>
+                                </div>
+
+                                <h6 class="border-bottom pb-2">PM2.5 Concentrations (µg/m³)</h6>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span>0-12</span>
+                                        <span>Good</span>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span>12.1-35.4</span>
+                                        <span>Moderate</span>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span>35.5-55.4</span>
+                                        <span>Unhealthy for Sensitive Groups</span>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span>55.5-150.4</span>
+                                        <span>Unhealthy</span>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span>150.5-250.4</span>
+                                        <span>Very Unhealthy</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>250.5+</span>
+                                        <span>Hazardous</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Tab -->
+        <div class="tab-pane fade" id="analysis" role="tabpanel" aria-labelledby="analysis-tab">
+            <div class="container mt-4">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h4>Air Quality Analysis</h4>
+                            </div>
+                            <div class="card-body">
+                                <p>This section provides detailed analysis of air quality data and its relationship to health impacts.</p>
+                                
+                                <!-- Time Series Analysis -->
+                                <div class="mt-4">
+                                    <h5>Time Trend Analysis</h5>
+                                    <p>This graph shows the trends of key metrics over time, including AQI, PM2.5, respiratory cases, and hospital admissions.</p>
+                                    <div class="analysis-chart-container">
+                                        <canvas id="trendAnalysisChart" height="300"></canvas>
+                                    </div>
+                                </div>
+                                
+                                <!-- Correlation Heatmap -->
+                                <div class="mt-5">
+                                    <h5>Pollutant Correlation Analysis</h5>
+                                    <p>The heatmap below shows correlations between different air quality metrics and health outcomes.</p>
+                                    <div class="analysis-chart-container">
+                                        <canvas id="correlationHeatmap" height="500"></canvas>
+                                    </div>
+                                </div>
+                                
+                                <!-- Pollutant Health Impact Scatterplots -->
+                                <div class="mt-5">
+                                    <h5>Pollutant Health Impact Analysis</h5>
+                                    <p>The scatter plots below show relationships between specific pollutants and hospital admissions.</p>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="card mb-4">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">AQI vs Hospital Admissions</h6>
+                                                    <canvas id="aqiScatterChart" height="250"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card mb-4">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">PM2.5 vs Hospital Admissions</h6>
+                                                    <canvas id="pm25ScatterChart" height="250"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="card mb-4">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">NO2 vs Hospital Admissions</h6>
+                                                    <canvas id="no2ScatterChart" height="250"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card mb-4">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">O3 vs Hospital Admissions</h6>
+                                                    <canvas id="o3ScatterChart" height="250"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Impact Tab -->
+        <div class="tab-pane fade" id="health" role="tabpanel" aria-labelledby="health-tab">
+            <div class="container mt-4">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h4>Health Impact of Air Pollution</h4>
+                            </div>
+                            <div class="card-body">
+                                <p>Air pollution is a significant environmental health risk that affects people of all ages and backgrounds. Below you'll find information about how different pollutants impact health and what protective measures you can take.</p>
+                                
+                                <!-- Health Impact Overview -->
+                                <div class="row mt-4">
+                                    <div class="col-md-6">
+                                        <h5>Key Health Effects by Pollutant</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered">
+                                                <thead class="table-primary">
+                                                    <tr>
+                                                        <th>Pollutant</th>
+                                                        <th>Primary Health Effects</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td><strong>PM2.5</strong><br><small>Fine Particulate Matter</small></td>
+                                                        <td>
+                                                            <ul class="mb-0">
+                                                                <li>Respiratory infections</li>
+                                                                <li>Aggravated asthma</li>
+                                                                <li>Decreased lung function</li>
+                                                                <li>Heart attacks and arrhythmia</li>
+                                                                <li>Premature death in people with heart/lung disease</li>
+                                                            </ul>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><strong>O3</strong><br><small>Ozone</small></td>
+                                                        <td>
+                                                            <ul class="mb-0">
+                                                                <li>Throat irritation and coughing</li>
+                                                                <li>Aggravated asthma and bronchitis</li>
+                                                                <li>Inflamed and damaged airways</li>
+                                                                <li>Reduced lung capacity</li>
+                                                                <li>Increased susceptibility to infections</li>
+                                                            </ul>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><strong>NO2</strong><br><small>Nitrogen Dioxide</small></td>
+                                                        <td>
+                                                            <ul class="mb-0">
+                                                                <li>Airway inflammation</li>
+                                                                <li>Worsened cough and wheezing</li>
+                                                                <li>Reduced lung function</li>
+                                                                <li>Increased asthma attacks</li>
+                                                                <li>Greater susceptibility to respiratory infections</li>
+                                                            </ul>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><strong>CO</strong><br><small>Carbon Monoxide</small></td>
+                                                        <td>
+                                                            <ul class="mb-0">
+                                                                <li>Reduces oxygen delivery to organs</li>
+                                                                <li>Chest pain in people with heart disease</li>
+                                                                <li>Vision problems</li>
+                                                                <li>Reduced ability to work or learn</li>
+                                                                <li>Confusion and disorientation</li>
+                                                            </ul>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5>Vulnerable Populations</h5>
+                                        <p>Certain groups are more susceptible to health effects from air pollution:</p>
+                                        <div class="card mb-3">
+                                            <div class="card-body">
+                                                <h6 class="card-title"><i class="bi bi-person"></i> Children</h6>
+                                                <p class="card-text">
+                                                    Developing lungs, higher respiratory rates, and more outdoor time make children especially vulnerable to air pollution. Exposure can lead to reduced lung development and function.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="card mb-3">
+                                            <div class="card-body">
+                                                <h6 class="card-title"><i class="bi bi-person"></i> Elderly</h6>
+                                                <p class="card-text">
+                                                    Older adults may have pre-existing conditions that make them more susceptible to pollution effects, especially cardiovascular issues.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="card mb-3">
+                                            <div class="card-body">
+                                                <h6 class="card-title"><i class="bi bi-heart"></i> People with Pre-existing Conditions</h6>
+                                                <p class="card-text">
+                                                    Those with asthma, COPD, heart disease, or diabetes face greater risks from poor air quality.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title"><i class="bi bi-people"></i> Outdoor Workers</h6>
+                                                <p class="card-text">
+                                                    Prolonged outdoor exposure increases risks for those in construction, traffic management, and other outdoor occupations.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Health Risk Assessment -->
+                                <div class="row mt-5">
+                                    <div class="col-12">
+                                        <h5>Health Risk Assessment Calculator</h5>
+                                        <p>Estimate your personal health risk based on current air quality and personal factors:</p>
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <form id="healthRiskForm">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <h6>Air Quality Factors</h6>
+                                                            <div class="mb-3">
+                                                                <label for="currentAQI" class="form-label">Current AQI</label>
+                                                                <input type="number" class="form-control" id="currentAQI" min="0" max="500">
+                                                                <div class="form-text">Leave blank to use current dashboard AQI</div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="exposureHours" class="form-label">Daily Outdoor Exposure (hours)</label>
+                                                                <input type="number" class="form-control" id="exposureHours" min="0" max="24" value="2">
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <h6>Personal Factors</h6>
+                                                            <div class="mb-3">
+                                                                <label for="ageGroup" class="form-label">Age Group</label>
+                                                                <select class="form-select" id="ageGroup">
+                                                                    <option value="child">Child (0-12)</option>
+                                                                    <option value="teen">Teen (13-18)</option>
+                                                                    <option value="adult" selected>Adult (19-60)</option>
+                                                                    <option value="senior">Senior (60+)</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Pre-existing Conditions</label>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="checkbox" id="hasAsthma">
+                                                                    <label class="form-check-label" for="hasAsthma">Asthma/Respiratory</label>
+                                                                </div>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="checkbox" id="hasCardiovascular">
+                                                                    <label class="form-check-label" for="hasCardiovascular">Cardiovascular</label>
+                                                                </div>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="checkbox" id="hasCompromisedImmunity">
+                                                                    <label class="form-check-label" for="hasCompromisedImmunity">Compromised Immunity</label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" id="calculateRisk" class="btn btn-primary">Calculate Risk</button>
+                                                </form>
+                                                
+                                                <div id="riskResults" class="mt-4" style="display: none;">
+                                                    <h6>Your Estimated Health Risk:</h6>
+                                                    <div class="progress mb-3">
+                                                        <div id="riskBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                                    </div>
+                                                    <div id="riskAssessment" class="alert alert-info">
+                                                        Complete the form and click "Calculate Risk" to see your assessment.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Protective Measures -->
+                                <div class="row mt-5">
+                                    <div class="col-12">
+                                        <h5>Protective Measures</h5>
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <div class="row">
+                                                    <div class="col-md-4">
+                                                        <div class="card h-100 bg-light">
+                                                            <div class="card-body">
+                                                                <h6 class="card-title text-center"><i class="bi bi-house-door"></i> Indoor Protection</h6>
+                                                                <ul>
+                                                                    <li>Use air purifiers with HEPA filters</li>
+                                                                    <li>Keep windows closed on high pollution days</li>
+                                                                    <li>Avoid burning candles or incense</li>
+                                                                    <li>Use exhaust fans when cooking</li>
+                                                                    <li>Maintain HVAC systems and change filters regularly</li>
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="card h-100 bg-light">
+                                                            <div class="card-body">
+                                                                <h6 class="card-title text-center"><i class="bi bi-person-bounding-box"></i> Personal Protection</h6>
+                                                                <ul>
+                                                                    <li>Wear N95 masks on high pollution days</li>
+                                                                    <li>Limit outdoor exercise during peak pollution</li>
+                                                                    <li>Stay hydrated</li>
+                                                                    <li>Monitor air quality forecasts</li>
+                                                                    <li>Follow medication plans if you have respiratory conditions</li>
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="card h-100 bg-light">
+                                                            <div class="card-body">
+                                                                <h6 class="card-title text-center"><i class="bi bi-gear"></i> Community Actions</h6>
+                                                                <ul>
+                                                                    <li>Use public transportation or carpool</li>
+                                                                    <li>Support clean air policies</li>
+                                                                    <li>Reduce energy consumption</li>
+                                                                    <li>Plant trees and preserve green spaces</li>
+                                                                    <li>Participate in community air monitoring</li>
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Health Impact Charts -->
+                                <div class="row mt-5">
+                                    <div class="col-12">
+                                        <h5>Long-term Health Impact Visualization</h5>
+                                        <p>These charts illustrate potential health impacts based on sustained exposure to different levels of air pollution:</p>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="card mb-4">
+                                                    <div class="card-body">
+                                                        <h6 class="card-title">Estimated Respiratory Effects by Exposure Level</h6>
+                                                        <canvas id="respiratoryImpactChart" height="300"></canvas>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="card mb-4">
+                                                    <div class="card-body">
+                                                        <h6 class="card-title">Life Expectancy Impact by Pollution Level</h6>
+                                                        <canvas id="lifeExpectancyChart" height="300"></canvas>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Tab -->
+        <div class="tab-pane fade" id="about" role="tabpanel" aria-labelledby="about-tab">
+            <div class="container mt-4">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4>About This Dashboard</h4>
+                            </div>
+                            <div class="card-body">
+                                <h5>Real-Time Air Quality Dashboard</h5>
+                                <p>This dashboard provides real-time air quality information for locations around the world.</p>
+                                
+                                <h5>Data Sources</h5>
+                                <p>Air quality data is sourced from multiple reliable APIs:</p>
+                                <ul>
+                                    <li><strong>WAQI API</strong> - The World Air Quality Index Project</li>
+                                    <li><strong>IQAir API</strong> - IQAir AirVisual service</li>
+                                    <li><strong>OpenAQ API</strong> - Open-source air quality data platform</li>
+                                </ul>
+                                
+                                <h5>Dashboard Features</h5>
+                                <ul>
+                                    <li>Real-time air quality monitoring</li>
+                                    <li>Location-based personalization</li>
+                                    <li>Historical data tracking</li>
+                                    <li>Health impact assessment</li>
+                                </ul>
+                                
+                                <h5>Additional Information</h5>
+                                <p>This dashboard is designed for educational and informational purposes. For health-related decisions, please consult with healthcare professionals.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDsnO8p4A4SWCZOzTqJuQ_hJYTDx2jwXiE&libraries=places"></script>
+    <script src="script.js"></script>
+    <script>
+        // Initialize Bootstrap tabs
+        document.addEventListener('DOMContentLoaded', function() {
+            // Create tab instances
+            const triggerTabList = [].slice.call(document.querySelectorAll('#myTab a'));
+            triggerTabList.forEach(function(triggerEl) {
+                const tabTrigger = new bootstrap.Tab(triggerEl);
+                
+                triggerEl.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    tabTrigger.show();
+                    
+                    // Load analysis charts when Analysis tab is clicked
+                    if (this.getAttribute('href') === '#analysis') {
+                        setTimeout(initAnalysisCharts, 100);
+                    }
+                    
+                    // Load health impact charts when Health tab is clicked
+                    if (this.getAttribute('href') === '#health') {
+                        setTimeout(initHealthImpactCharts, 100);
+                    }
+                });
+            });
+            
+            // Handle direct links with hash
+            if (window.location.hash) {
+                const hash = window.location.hash;
+                const triggerEl = document.querySelector(`#myTab a[href="${hash}"]`);
+                if (triggerEl) {
+                    const tab = new bootstrap.Tab(triggerEl);
+                    tab.show();
+                    
+                    // Initialize analysis charts if navigating directly to analysis tab
+                    if (hash === '#analysis') {
+                        setTimeout(initAnalysisCharts, 100);
+                    }
+                    
+                    // Initialize health impact charts if navigating directly to health tab
+                    if (hash === '#health') {
+                        setTimeout(initHealthImpactCharts, 100);
+                    }
+                }
+            }
+            
+            // Set up Health Risk Calculator
+            const calculateRiskBtn = document.getElementById('calculateRisk');
+            if (calculateRiskBtn) {
+                calculateRiskBtn.addEventListener('click', calculateHealthRisk);
+            }
+        });
+        
+        // Initialize Analysis Tab Charts
+        function initAnalysisCharts() {
+            console.log("Initializing analysis charts...");
+            
+            // Generate mock data for demo purposes
+            const dates = [];
+            const aqiData = [];
+            const pm25Data = [];
+            const respCases = [];
+            const hospitalAdm = [];
+            
+            // Create 30 days of mock data
+            const now = new Date();
+            for (let i = 29; i >= 0; i--) {
+                const date = new Date(now);
+                date.setDate(date.getDate() - i);
+                dates.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                
+                // Generate realistic but random data
+                const baseAQI = 80 + Math.sin(i/5) * 30;
+                const aqi = Math.max(0, Math.round(baseAQI + (Math.random() * 30 - 15)));
+                aqiData.push(aqi);
+                
+                const pm25 = Math.max(0, Math.round(aqi * 0.6 + (Math.random() * 10 - 5)));
+                pm25Data.push(pm25);
+                
+                // Cases correlate somewhat with pollution levels 
+                const resp = Math.max(0, Math.round((aqi/10) * 5 + (Math.random() * 20)));
+                respCases.push(resp);
+                
+                const hosp = Math.max(0, Math.round((aqi/20) * 3 + (Math.random() * 10)));
+                hospitalAdm.push(hosp);
+            }
+            
+            // Create Time Trend Analysis Chart
+            createTrendAnalysisChart(dates, aqiData, pm25Data, respCases, hospitalAdm);
+            
+            // Create Scatter Plots
+            createScatterPlots(aqiData, pm25Data, respCases, hospitalAdm);
+            
+            // Create Correlation Heatmap
+            createCorrelationHeatmap();
+        }
+        
+        // Create Time Trend Analysis Chart
+        function createTrendAnalysisChart(dates, aqiData, pm25Data, respCases, hospitalAdm) {
+            const ctx = document.getElementById('trendAnalysisChart');
+            if (!ctx) {
+                console.error("Cannot find trendAnalysisChart canvas");
+                return;
+            }
+            
+            // Destroy existing chart if it exists
+            if (window.trendChart) {
+                window.trendChart.destroy();
+            }
+            
+            window.trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'AQI',
+                            data: aqiData,
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'PM2.5',
+                            data: pm25Data,
+                            borderColor: 'rgb(54, 162, 235)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Respiratory Cases',
+                            data: respCases,
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Hospital Admissions',
+                            data: hospitalAdm,
+                            borderColor: 'rgb(153, 102, 255)',
+                            backgroundColor: 'rgba(153, 102, 255, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    stacked: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Air Quality and Health Impact Trends'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Air Quality Metrics'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Health Cases'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Create Scatter Plots
+        function createScatterPlots(aqiData, pm25Data, respCases, hospitalAdm) {
+            // Create additional mock data for other pollutants
+            const no2Data = aqiData.map(val => Math.max(0, Math.round(val * 0.4 + (Math.random() * 30 - 15))));
+            const o3Data = aqiData.map(val => Math.max(0, Math.round(val * 0.3 + (Math.random() * 40 - 20))));
+            
+            // AQI vs Hospital Admissions
+            createScatterPlot('aqiScatterChart', 'AQI', aqiData, hospitalAdm, 'rgb(255, 99, 132)');
+            
+            // PM2.5 vs Hospital Admissions
+            createScatterPlot('pm25ScatterChart', 'PM2.5', pm25Data, hospitalAdm, 'rgb(54, 162, 235)');
+            
+            // NO2 vs Hospital Admissions
+            createScatterPlot('no2ScatterChart', 'NO2', no2Data, hospitalAdm, 'rgb(75, 192, 192)');
+            
+            // O3 vs Hospital Admissions
+            createScatterPlot('o3ScatterChart', 'O3', o3Data, hospitalAdm, 'rgb(153, 102, 255)');
+        }
+        
+        // Helper function to create a scatter plot
+        function createScatterPlot(canvasId, xLabel, xData, yData, color) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) {
+                console.error(`Cannot find ${canvasId} canvas`);
+                return;
+            }
+            
+            // Destroy existing chart if it exists
+            if (window[canvasId + 'Chart']) {
+                window[canvasId + 'Chart'].destroy();
+            }
+            
+            // Create dataset with paired x,y values
+            const data = xData.map((x, i) => ({
+                x: x,
+                y: yData[i]
+            }));
+            
+            // Calculate regression line
+            const n = data.length;
+            const sumX = data.reduce((sum, point) => sum + point.x, 0);
+            const sumY = data.reduce((sum, point) => sum + point.y, 0);
+            const sumXY = data.reduce((sum, point) => sum + (point.x * point.y), 0);
+            const sumXX = data.reduce((sum, point) => sum + (point.x * point.x), 0);
+            
+            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            
+            // Get min and max x values for regression line
+            const minX = Math.min(...xData);
+            const maxX = Math.max(...xData);
+            
+            // Create regression line points
+            const regressionLine = [
+                { x: minX, y: minX * slope + intercept },
+                { x: maxX, y: maxX * slope + intercept }
+            ];
+            
+            window[canvasId + 'Chart'] = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: xLabel + ' vs Hospital Admissions',
+                        data: data,
+                        backgroundColor: color,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }, {
+                        label: 'Trend Line',
+                        data: regressionLine,
+                        type: 'line',
+                        borderColor: 'rgba(0, 0, 0, 0.5)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return `${xLabel}: ${point.x}, Hospital Admissions: ${point.y}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: xLabel
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Hospital Admissions'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Create Correlation Heatmap
+        function createCorrelationHeatmap() {
+            const ctx = document.getElementById('correlationHeatmap');
+            if (!ctx) {
+                console.error("Cannot find correlationHeatmap canvas");
+                return;
+            }
+            
+            // Mock correlation data (realistic but synthetic)
+            const correlationData = [
+                { x: 'AQI', y: 'AQI', v: 1.0 },
+                { x: 'AQI', y: 'PM2.5', v: 0.92 },
+                { x: 'AQI', y: 'NO2', v: 0.75 },
+                { x: 'AQI', y: 'O3', v: 0.68 },
+                { x: 'AQI', y: 'Respiratory', v: 0.82 },
+                { x: 'AQI', y: 'Hospital', v: 0.79 },
+                
+                { x: 'PM2.5', y: 'AQI', v: 0.92 },
+                { x: 'PM2.5', y: 'PM2.5', v: 1.0 },
+                { x: 'PM2.5', y: 'NO2', v: 0.70 },
+                { x: 'PM2.5', y: 'O3', v: 0.64 },
+                { x: 'PM2.5', y: 'Respiratory', v: 0.78 },
+                { x: 'PM2.5', y: 'Hospital', v: 0.74 },
+                
+                { x: 'NO2', y: 'AQI', v: 0.75 },
+                { x: 'NO2', y: 'PM2.5', v: 0.70 },
+                { x: 'NO2', y: 'NO2', v: 1.0 },
+                { x: 'NO2', y: 'O3', v: 0.85 },
+                { x: 'NO2', y: 'Respiratory', v: 0.67 },
+                { x: 'NO2', y: 'Hospital', v: 0.71 },
+                
+                { x: 'O3', y: 'AQI', v: 0.68 },
+                { x: 'O3', y: 'PM2.5', v: 0.64 },
+                { x: 'O3', y: 'NO2', v: 0.85 },
+                { x: 'O3', y: 'O3', v: 1.0 },
+                { x: 'O3', y: 'Respiratory', v: 0.59 },
+                { x: 'O3', y: 'Hospital', v: 0.62 },
+                
+                { x: 'Respiratory', y: 'AQI', v: 0.82 },
+                { x: 'Respiratory', y: 'PM2.5', v: 0.78 },
+                { x: 'Respiratory', y: 'NO2', v: 0.67 },
+                { x: 'Respiratory', y: 'O3', v: 0.59 },
+                { x: 'Respiratory', y: 'Respiratory', v: 1.0 },
+                { x: 'Respiratory', y: 'Hospital', v: 0.89 },
+                
+                { x: 'Hospital', y: 'AQI', v: 0.79 },
+                { x: 'Hospital', y: 'PM2.5', v: 0.74 },
+                { x: 'Hospital', y: 'NO2', v: 0.71 },
+                { x: 'Hospital', y: 'O3', v: 0.62 },
+                { x: 'Hospital', y: 'Respiratory', v: 0.89 },
+                { x: 'Hospital', y: 'Hospital', v: 1.0 }
+            ];
+            
+            // Create a manual correlation heatmap using HTML/CSS since Chart.js doesn't have a built-in matrix chart type
+            const heatmapContainer = document.createElement('div');
+            heatmapContainer.style.display = 'grid';
+            heatmapContainer.style.gridTemplateColumns = 'repeat(7, 1fr)';
+            heatmapContainer.style.gap = '2px';
+            heatmapContainer.style.marginTop = '20px';
+            
+            const labels = ['', 'AQI', 'PM2.5', 'NO2', 'O3', 'Respiratory', 'Hospital'];
+            
+            // Create header row
+            labels.forEach(label => {
+                const cell = document.createElement('div');
+                cell.textContent = label;
+                cell.style.fontWeight = 'bold';
+                cell.style.textAlign = 'center';
+                cell.style.padding = '8px';
+                heatmapContainer.appendChild(cell);
+            });
+            
+            // Create matrix cells
+            for (let i = 1; i < labels.length; i++) {
+                // Row label
+                const rowLabel = document.createElement('div');
+                rowLabel.textContent = labels[i];
+                rowLabel.style.fontWeight = 'bold';
+                rowLabel.style.textAlign = 'right';
+                rowLabel.style.padding = '8px';
+                heatmapContainer.appendChild(rowLabel);
+                
+                // Correlation cells for this row
+                for (let j = 1; j < labels.length; j++) {
+                    const cell = document.createElement('div');
+                    const correlation = correlationData.find(d => d.x === labels[j] && d.y === labels[i]);
+                    const value = correlation ? correlation.v : 0;
+                    
+                    cell.textContent = value.toFixed(2);
+                    
+                    // Color based on correlation strength
+                    const red = value > 0 ? 255 : 0;
+                    const blue = value < 0 ? 255 : 0;
+                    const green = 0;
+                    const alpha = Math.abs(value) * 0.8 + 0.2; // Ensure some visibility even for low correlations
+                    
+                    cell.style.backgroundColor = `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+                    cell.style.color = Math.abs(value) > 0.5 ? 'white' : 'black';
+                    cell.style.textAlign = 'center';
+                    cell.style.padding = '8px';
+                    
+                    heatmapContainer.appendChild(cell);
+                }
+            }
+            
+            // Replace the canvas with our custom heatmap
+            if (ctx.parentNode) {
+                ctx.parentNode.replaceChild(heatmapContainer, ctx);
+            }
+        }
+        
+        // Initialize Health Impact Charts
+        function initHealthImpactCharts() {
+            console.log("Initializing health impact charts...");
+            createRespiratoryImpactChart();
+            createLifeExpectancyImpactChart();
+        }
+        
+        // Create Respiratory Impact Chart
+        function createRespiratoryImpactChart() {
+            const ctx = document.getElementById('respiratoryImpactChart');
+            if (!ctx) {
+                console.error("Cannot find respiratoryImpactChart canvas");
+                return;
+            }
+            
+            // Destroy existing chart if it exists
+            if (window.respiratoryChart) {
+                window.respiratoryChart.destroy();
+            }
+            
+            // Generate mock data for respiratory impact by AQI level
+            const aqiLevels = ['0-50', '51-100', '101-150', '151-200', '201-300', '301+'];
+            const asthmaCases = [5, 12, 25, 40, 65, 85];
+            const chronicBronchitis = [2, 6, 15, 30, 48, 60];
+            const reducedLungFunction = [1, 8, 20, 35, 55, 75];
+            
+            window.respiratoryChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: aqiLevels,
+                    datasets: [
+                        {
+                            label: 'Asthma Cases',
+                            data: asthmaCases,
+                            backgroundColor: 'rgba(255, 99, 132, 0.7)'
+                        },
+                        {
+                            label: 'Chronic Bronchitis',
+                            data: chronicBronchitis,
+                            backgroundColor: 'rgba(54, 162, 235, 0.7)'
+                        },
+                        {
+                            label: 'Reduced Lung Function',
+                            data: reducedLungFunction,
+                            backgroundColor: 'rgba(75, 192, 192, 0.7)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Estimated Respiratory Effects per 1,000 People'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw} per 1,000 people`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'AQI Range'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Cases per 1,000 People'
+                            },
+                            suggestedMin: 0
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Create Life Expectancy Impact Chart
+        function createLifeExpectancyImpactChart() {
+            const ctx = document.getElementById('lifeExpectancyChart');
+            if (!ctx) {
+                console.error("Cannot find lifeExpectancyChart canvas");
+                return;
+            }
+            
+            // Destroy existing chart if it exists
+            if (window.lifeExpectancyChart) {
+                window.lifeExpectancyChart.destroy();
+            }
+            
+            // Generate mock data for life expectancy impact by annual average PM2.5 exposure
+            const pm25Levels = [5, 10, 15, 20, 30, 40, 50, 60];
+            const lifeYearsLost = [0.1, 0.3, 0.7, 1.2, 2.0, 2.8, 3.5, 4.1];
+            
+            window.lifeExpectancyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: pm25Levels.map(val => `${val} µg/m³`),
+                    datasets: [
+                        {
+                            label: 'Years of Life Lost',
+                            data: lifeYearsLost,
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.3,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Estimated Impact on Life Expectancy Due to PM2.5 Exposure'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Years of Life Lost: ${context.raw.toFixed(1)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Annual Average PM2.5 Concentration'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Years of Life Lost'
+                            },
+                            suggestedMin: 0
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Health Risk Calculator Logic
+        function calculateHealthRisk() {
+            // Get form values
+            let aqiValue = document.getElementById('currentAQI').value;
+            if (!aqiValue) {
+                const dashboardAqi = document.getElementById('aqi-value');
+                if (dashboardAqi && dashboardAqi.textContent !== '--') {
+                    aqiValue = parseInt(dashboardAqi.textContent);
+                } else {
+                    aqiValue = 50; // Default if no value provided or not available on dashboard
+                }
+            } else {
+                aqiValue = parseInt(aqiValue);
+            }
+            
+            const exposureHours = parseInt(document.getElementById('exposureHours').value) || 2;
+            const ageGroup = document.getElementById('ageGroup').value;
+            const hasAsthma = document.getElementById('hasAsthma').checked;
+            const hasCardiovascular = document.getElementById('hasCardiovascular').checked;
+            const hasCompromisedImmunity = document.getElementById('hasCompromisedImmunity').checked;
+            
+            // Calculate base risk based on AQI
+            let baseRisk = 0;
+            if (aqiValue <= 50) {
+                baseRisk = 10; // Low risk
+            } else if (aqiValue <= 100) {
+                baseRisk = 25; // Moderate risk
+            } else if (aqiValue <= 150) {
+                baseRisk = 45; // Unhealthy for sensitive groups
+            } else if (aqiValue <= 200) {
+                baseRisk = 60; // Unhealthy
+            } else if (aqiValue <= 300) {
+                baseRisk = 75; // Very unhealthy
+            } else {
+                baseRisk = 90; // Hazardous
+            }
+            
+            // Adjust risk based on exposure time (more exposure = higher risk)
+            const exposureFactor = Math.min(2, exposureHours / 8); // Cap at 2x risk for extended exposure
+            let riskScore = baseRisk * exposureFactor;
+            
+            // Adjust for age group vulnerability
+            if (ageGroup === 'child') {
+                riskScore *= 1.3; // Children are more vulnerable
+            } else if (ageGroup === 'teen') {
+                riskScore *= 1.1; // Teens are somewhat more vulnerable
+            } else if (ageGroup === 'senior') {
+                riskScore *= 1.4; // Seniors are more vulnerable
+            }
+            
+            // Adjust for existing conditions
+            if (hasAsthma) riskScore *= 1.4;
+            if (hasCardiovascular) riskScore *= 1.3;
+            if (hasCompromisedImmunity) riskScore *= 1.25;
+            
+            // Cap at 100%
+            riskScore = Math.min(100, riskScore);
+            
+            // Update the UI
+            const riskBar = document.getElementById('riskBar');
+            const riskAssessment = document.getElementById('riskAssessment');
+            const riskResults = document.getElementById('riskResults');
+            
+            if (riskBar && riskAssessment && riskResults) {
+                // Show the results section
+                riskResults.style.display = 'block';
+                
+                // Update progress bar
+                riskBar.style.width = `${riskScore}%`;
+                riskBar.textContent = `${Math.round(riskScore)}%`;
+                riskBar.setAttribute('aria-valuenow', riskScore);
+                
+                // Set color based on risk level
+                if (riskScore < 30) {
+                    riskBar.className = 'progress-bar bg-success';
+                } else if (riskScore < 60) {
+                    riskBar.className = 'progress-bar bg-warning';
+                } else if (riskScore < 80) {
+                    riskBar.className = 'progress-bar bg-orange';
+                } else {
+                    riskBar.className = 'progress-bar bg-danger';
+                }
+                
+                // Generate assessment text
+                let assessmentText = '';
+                let assessmentClass = '';
+                
+                if (riskScore < 30) {
+                    assessmentText = `<strong>Low Risk (${Math.round(riskScore)}%)</strong>: Your risk from current air quality is relatively low. Continue to monitor air quality, especially if you plan extended outdoor activities.`;
+                    assessmentClass = 'alert-success';
+                } else if (riskScore < 60) {
+                    assessmentText = `<strong>Moderate Risk (${Math.round(riskScore)}%)</strong>: You may experience some health effects, especially with prolonged exposure. Consider reducing extended outdoor activities, particularly if you begin to experience symptoms.`;
+                    assessmentClass = 'alert-warning';
+                } else if (riskScore < 80) {
+                    assessmentText = `<strong>High Risk (${Math.round(riskScore)}%)</strong>: You have a significant risk of experiencing health effects. Reduce outdoor activities and consider wearing a mask if you must be outside for extended periods.`;
+                    assessmentClass = 'alert-orange';
+                } else {
+                    assessmentText = `<strong>Very High Risk (${Math.round(riskScore)}%)</strong>: You have a high risk of experiencing serious health effects. Minimize outdoor exposure, wear appropriate protection if you must go outside, and consider using air purifiers indoors.`;
+                    assessmentClass = 'alert-danger';
+                }
+                
+                // Add specific advice for conditions
+                if (hasAsthma) {
+                    assessmentText += '<br><br>As someone with asthma, keep rescue medications readily available and be vigilant about symptoms.';
+                }
+                if (hasCardiovascular) {
+                    assessmentText += '<br><br>With your cardiovascular condition, be especially cautious as air pollution can exacerbate heart issues.';
+                }
+                if (hasCompromisedImmunity) {
+                    assessmentText += '<br><br>Due to your compromised immunity, consider extra precautions such as limiting all outdoor exposure when air quality is poor.';
+                }
+                
+                // Update the assessment text and class
+                riskAssessment.innerHTML = assessmentText;
+                riskAssessment.className = `alert ${assessmentClass}`;
+            }
+        }
+    </script>
+</body>
+</html> 
